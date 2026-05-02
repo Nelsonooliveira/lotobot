@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LotoBot IA — Palpites Inteligentes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#080d18; --card:#0f1623; --card2:#141e2e; --border:#1c2840;
+  --text:#e2e8f0; --muted:#64748b;
+  --accent:#6366f1; --accent2:#818cf8;
+  --mega:#10b981; --loto:#f59e0b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#0f1623,#080d18);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;position:sticky;top:0;z-index:50}
+.logo{display:flex;align-items:center;gap:.75rem}
+.logo-icon{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 0 20px rgba(99,102,241,.4)}
+.logo-name{font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-tag{font-size:.62rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:-2px}
+.header-right{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.ai-pill{display:flex;align-items:center;gap:.5rem;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:20px;padding:.3rem .9rem;font-size:.75rem;color:#34d399}
+.ai-dot{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{opacity:.6;box-shadow:0 0 0 4px rgba(16,185,129,0)}}
+
+/* GAME SELECTOR */
+.game-sel{display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:4px}
+.game-btn{padding:.55rem 1.3rem;border:none;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .2s;color:var(--muted);background:transparent}
+.game-btn.mega.active{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 2px 12px rgba(16,185,129,.35)}
+.game-btn.loto.active{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;box-shadow:0 2px 12px rgba(245,158,11,.35)}
+.game-btn:not(.active):hover{color:var(--text)}
+
+/* CONTROLS */
+.controls{padding:1.25rem 2rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.ctrl-label{font-size:.8rem;color:var(--muted);font-weight:500;white-space:nowrap}
+.qty-wrap{display:flex;gap:4px}
+.qty-btn{width:38px;height:38px;border:1px solid var(--border);border-radius:9px;background:var(--card2);color:var(--muted);font-size:.85rem;cursor:pointer;transition:all .2s;font-weight:700}
+.qty-btn.active,.qty-btn:hover{border-color:var(--accent);color:var(--accent2);background:rgba(99,102,241,.1)}
+.regen-btn{display:flex;align-items:center;gap:.5rem;padding:.6rem 1.5rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:11px;color:#fff;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.regen-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.regen-btn:active{transform:translateY(0)}
+.regen-icon{display:inline-block}
+.regen-btn.spinning .regen-icon{animation:spin .6s ease}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.data-tag{margin-left:auto;font-size:.72rem;color:var(--muted);white-space:nowrap}
+
+/* FETCH STATUS */
+.fetch-bar{display:flex;align-items:center;gap:.6rem;padding:.55rem 2rem;background:rgba(99,102,241,.06);border-bottom:1px solid var(--border);font-size:.75rem;color:var(--muted);transition:all .3s}
+.fetch-bar.ok{background:rgba(16,185,129,.06);color:#34d399}
+.fetch-bar.warn{background:rgba(245,158,11,.06);color:#fbbf24}
+.fetch-bar.err{background:rgba(239,68,68,.06);color:#f87171}
+.fetch-spin{width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
+/* TABS */
+.tabs{padding:0 2rem;display:flex;border-bottom:1px solid var(--border)}
+.tab{padding:.8rem 1.5rem;border:none;background:transparent;color:var(--muted);font-size:.88rem;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-weight:500}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.tab-pane{display:none;padding:1.5rem 2rem}
+.tab-pane.active{display:block}
+
+/* LEGEND */
+.legend{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.leg-item{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted)}
+.leg-dot{width:11px;height:11px;border-radius:50%}
+
+/* GRID */
+.pred-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1.25rem}
+
+/* CARD */
+.pred-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:1.25rem;transition:all .25s;position:relative;overflow:hidden}
+.pred-card:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(0,0,0,.4);border-color:rgba(99,102,241,.3)}
+.pred-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),#8b5cf6)}
+.pred-card.mega::before{background:linear-gradient(90deg,#059669,#34d399)}
+.pred-card.loto::before{background:linear-gradient(90deg,#d97706,#fbbf24)}
+
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.card-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
+.prob-chip{display:flex;align-items:center;gap:.35rem;border-radius:20px;padding:.28rem .8rem;font-size:.82rem;font-weight:700;border:1px solid}
+.prob-chip.high{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.3);color:#34d399}
+.prob-chip.med{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:#fbbf24}
+.prob-chip.low{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3);color:#818cf8}
+
+/* BALLS */
+.balls-row{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1rem}
+.ball{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.82rem;cursor:default;transition:transform .15s;flex-shrink:0}
+.ball:hover{transform:scale(1.12)}
+.ball.hot{background:linear-gradient(135deg,#ef4444,#f97316);color:#fff}
+.ball.warm{background:linear-gradient(135deg,#f97316,#f59e0b);color:#fff}
+.ball.cool{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.ball.cold{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff}
+
+/* PROB BAR */
+.bar-wrap{margin-bottom:.85rem}
+.bar-meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-bottom:.3rem}
+.bar-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+
+/* AGENTS */
+.agents{border-top:1px solid var(--border);padding-top:.85rem;margin-top:.85rem}
+.agents-title{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:.6rem}
+.agents-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.agent-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:.5rem;text-align:center}
+.agent-name{font-size:.62rem;color:var(--muted);margin-bottom:.25rem}
+.agent-val{font-size:.85rem;font-weight:700}
+
+/* CARD ACTIONS */
+.card-actions{display:flex;gap:.5rem;margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--border)}
+.act-btn{flex:1;padding:.42rem .5rem;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--muted);font-size:.75rem;cursor:pointer;transition:all .2s}
+.act-btn:hover{border-color:var(--accent);color:var(--accent2)}
+
+/* ACCEPT BTN — destaque especial */
+.accept-btn{
+  flex:2;padding:.55rem .5rem;border:none;border-radius:9px;
+  background:linear-gradient(135deg,#059669,#10b981);
+  color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.4rem;
+  box-shadow:0 2px 12px rgba(16,185,129,.25);
+}
+.accept-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(16,185,129,.4)}
+.accept-btn:active{transform:translateY(0)}
+
+/* ESTADO: aguardando resultado */
+.waiting-badge{
+  margin-top:.85rem;padding:.75rem 1rem;border-radius:10px;
+  background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);
+  display:flex;align-items:center;gap:.75rem;
+}
+.waiting-spinner{width:14px;height:14px;border:2px solid rgba(245,158,11,.3);border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite;flex-shrink:0}
+.waiting-text{font-size:.78rem;color:#fbbf24;flex:1}
+.waiting-manual{font-size:.7rem;color:var(--muted);background:transparent;border:none;cursor:pointer;text-decoration:underline;white-space:nowrap}
+.waiting-manual:hover{color:var(--text)}
+
+/* ESTADO: resultado auto */
+.result-badge{margin-top:.85rem;padding:.85rem;border-radius:10px;text-align:center;border:1px solid}
+.result-badge.excellent{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)}
+.result-badge.good{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25)}
+.result-badge.fair{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.25)}
+.result-badge.poor{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
+.rb-score{font-size:1.25rem;font-weight:800}
+.rb-detail{font-size:.73rem;color:var(--muted);margin-top:.25rem}
+.rb-source{font-size:.65rem;margin-top:.3rem;opacity:.6}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;padding:4rem;gap:1rem;color:var(--muted)}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+
+/* HISTORY */
+.acc-strip{display:flex;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:1.5rem;overflow:hidden}
+.acc-cell{flex:1;min-width:120px;padding:1rem 1.25rem;border-right:1px solid var(--border);text-align:center}
+.acc-cell:last-child{border-right:none}
+.acc-val{font-size:1.6rem;font-weight:800;color:var(--accent2)}
+.acc-lbl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:.2rem}
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{text-align:left;padding:.65rem 1rem;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+.hist-table td{padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem;vertical-align:middle}
+.hist-table tr:hover td{background:rgba(255,255,255,.02)}
+.mini-ball{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;margin:2px}
+.mini-ball.hit{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
+.mini-ball.miss{background:var(--border);color:var(--muted)}
+.mini-ball.plain{background:rgba(255,255,255,.07);color:var(--muted)}
+.mtag{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .65rem;border-radius:20px;font-size:.72rem;font-weight:700}
+.mtag.excellent{background:rgba(16,185,129,.12);color:#34d399}
+.mtag.good{background:rgba(245,158,11,.12);color:#fbbf24}
+.mtag.fair{background:rgba(99,102,241,.12);color:#818cf8}
+.mtag.poor{background:rgba(239,68,68,.12);color:#f87171}
+.mtag.waiting{background:rgba(245,158,11,.1);color:#fbbf24}
+.stag{font-size:.65rem;padding:.15rem .45rem;border-radius:5px}
+.stag.auto{background:rgba(16,185,129,.15);color:#34d399}
+.stag.manual{background:rgba(99,102,241,.15);color:#818cf8}
+.stag.pending{background:rgba(245,158,11,.12);color:#fbbf24}
+
+/* EMPTY */
+.empty{text-align:center;padding:4rem 2rem;color:var(--muted)}
+.empty-icon{font-size:3rem;margin-bottom:1rem;opacity:.5}
+
+/* ANALYSIS */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem}
+.stat-title{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:.6rem}
+.stat-big{font-size:1.6rem;font-weight:800;color:var(--accent2);line-height:1}
+.stat-sub{font-size:.73rem;color:var(--muted);margin-top:.3rem}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1.25rem}
+.chart-title{font-size:.9rem;font-weight:600;margin-bottom:1rem}
+.heat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px}
+.heat-cell{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;cursor:default;transition:transform .15s}
+.heat-cell:hover{transform:scale(1.08)}
+.heat-freq{font-size:.52rem;font-weight:400;opacity:.65;margin-top:1px}
+.wbar-item{margin-bottom:.65rem}
+.wbar-head{display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:.25rem}
+.wbar-track{height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.wbar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2rem;width:480px;max-width:95vw}
+.modal-title{font-size:1.1rem;font-weight:700;margin-bottom:.4rem}
+.modal-sub{font-size:.82rem;color:var(--muted);margin-bottom:1.25rem}
+.modal-palpite-label{font-size:.7rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:1px}
+.minput{width:100%;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:11px;color:var(--text);font-size:.9rem;margin-bottom:.75rem;transition:border-color .2s}
+.minput:focus{outline:none;border-color:var(--accent)}
+.merror{color:#f87171;font-size:.78rem;margin-bottom:.75rem;display:none}
+.mactions{display:flex;gap:.75rem;justify-content:flex-end}
+.btn-cancel{padding:.6rem 1.25rem;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+.btn-cancel:hover{border-color:var(--muted);color:var(--text)}
+.btn-ok{padding:.6rem 1.5rem;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;cursor:pointer;font-weight:600;transition:all .2s}
+.btn-ok:hover{opacity:.9}
+
+/* LOGIN GATE */
+.login-gate{
+  position:fixed;inset:0;z-index:999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;
+}
+.login-box{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:24px;padding:2.5rem 2rem;width:380px;max-width:100%;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.login-logo{
+  width:60px;height:60px;border-radius:16px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;margin:0 auto 1.25rem;
+  box-shadow:0 0 30px rgba(99,102,241,.45);
+}
+.login-title{font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.3rem}
+.login-sub{font-size:.82rem;color:var(--muted);margin-bottom:2rem}
+.login-input{
+  width:100%;padding:.85rem 1rem;background:var(--bg);
+  border:1px solid var(--border);border-radius:12px;
+  color:var(--text);font-size:1rem;letter-spacing:.1em;
+  text-align:center;margin-bottom:1rem;transition:border-color .2s;
+}
+.login-input:focus{outline:none;border-color:var(--accent)}
+.login-btn{
+  width:100%;padding:.85rem;border:none;border-radius:12px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:#fff;font-size:1rem;font-weight:700;cursor:pointer;
+  transition:all .2s;
+}
+.login-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.login-btn:active{transform:translateY(0)}
+.login-error{color:#f87171;font-size:.8rem;margin-top:.75rem;min-height:1.2em;transition:all .2s}
+.login-remember{display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.78rem;color:var(--muted);margin-bottom:1rem;cursor:pointer}
+.login-remember input{accent-color:var(--accent)}
+.login-footer{font-size:.68rem;color:var(--muted);margin-top:1.5rem;opacity:.6}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.shake{animation:shake .4s ease}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:300;display:flex;flex-direction:column;gap:.6rem;pointer-events:none}
+.toast{padding:.8rem 1.2rem;border-radius:12px;font-size:.82rem;font-weight:500;max-width:320px;box-shadow:0 8px 30px rgba(0,0,0,.4);pointer-events:auto;animation:slideIn .3s ease;border:1px solid}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.toast.success{background:#0f2e1e;border-color:rgba(16,185,129,.35);color:#34d399}
+.toast.info{background:#0f1a2e;border-color:rgba(99,102,241,.35);color:#818cf8}
+.toast.warn{background:#2e1f0a;border-color:rgba(245,158,11,.35);color:#fbbf24}
+
+@media(max-width:768px){
+  .header{padding:1rem}.controls{padding:1rem;gap:1rem}.tab-pane{padding:1rem}
+  .tabs{padding:0 1rem;overflow-x:auto}.pred-grid{grid-template-columns:1fr}
+  .acc-strip{flex-direction:column}.acc-cell{border-right:none;border-bottom:1px solid var(--border)}
+  .acc-cell:last-child{border-bottom:none}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div class="login-gate" id="loginGate">
+  <div class="login-box">
+    <div class="login-logo">🎯</div>
+    <div class="login-title">LotoBot IA</div>
+    <div class="login-sub">Palpites com Inteligência Artificial<br>Digite sua senha de acesso</div>
+    <input class="login-input" id="loginInput" type="password" placeholder="••••••••••" maxlength="30">
+    <label class="login-remember">
+      <input type="checkbox" id="rememberMe" checked> Lembrar acesso por 30 dias
+    </label>
+    <button class="login-btn" id="loginBtn">Entrar →</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-footer">LotoBot IA · Acesso restrito a assinantes</div>
+  </div>
+</div>
+
+<!-- ═══ LOGIN JS ISOLADO — não depende do resto do app ═══ -->
+<script>
+// ⚙️ SENHAS — adicione uma por cliente, troque quando quiser
+var SENHAS_VALIDAS = [
+  "lotobot2026"
+  // ,"cliente01"
+  // ,"cliente02"
+];
+var SESSAO_DIAS = 30;
+
+function doLogin() {
+  var input = document.getElementById('loginInput');
+  var errEl = document.getElementById('loginError');
+  var senha = input.value.trim();
+
+  if (SENHAS_VALIDAS.indexOf(senha) !== -1) {
+    // Senha correta — salva sessão
+    var lembrar = document.getElementById('rememberMe').checked;
+    if (lembrar) {
+      var expiry = Date.now() + SESSAO_DIAS * 24 * 60 * 60 * 1000;
+      try { localStorage.setItem('lb_session', JSON.stringify({ok:true, expiry:expiry})); } catch(e){}
+    } else {
+      try { sessionStorage.setItem('lb_session_temp', '1'); } catch(e){}
+    }
+    document.getElementById('loginGate').style.display = 'none';
+    window.__loginOk = true;
+    if (typeof appStart === 'function') appStart();
+  } else {
+    // Senha errada
+    errEl.textContent = '❌ Senha incorreta. Verifique e tente novamente.';
+    input.value = '';
+    input.focus();
+    var box = document.querySelector('.login-box');
+    if (box) {
+      box.style.animation = 'none';
+      setTimeout(function(){ box.style.animation = 'shake .4s ease'; }, 10);
+    }
+    setTimeout(function(){ errEl.textContent = ''; }, 3000);
+  }
+}
+
+function checkSession() {
+  try { if (sessionStorage.getItem('lb_session_temp')) return true; } catch(e){}
+  try {
+    var s = JSON.parse(localStorage.getItem('lb_session') || '{}');
+    if (s.ok && s.expiry > Date.now()) return true;
+  } catch(e){}
+  return false;
+}
+
+// Conecta eventos assim que o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('loginBtn');
+  var inp = document.getElementById('loginInput');
+  if (btn) btn.onclick = doLogin;
+  if (inp) inp.onkeydown = function(e){ if (e.key === 'Enter') doLogin(); };
+
+  if (checkSession()) {
+    document.getElementById('loginGate').style.display = 'none';
+    window.__loginOk = true;
+    // appStart será chamado pelo window.onload do app principal
+  } else {
+    if (inp) inp.focus();
+  }
+});
+</script>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">🎯</div>
+    <div>
+      <div class="logo-name">LotoBot IA</div>
+      <div class="logo-tag">Palpites com Inteligência Artificial</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="ai-pill"><div class="ai-dot"></div><span id="aiLabel">3 agentes ativos</span></div>
+    <div class="game-sel">
+      <button class="game-btn mega active" onclick="selectGame('megasena')">Mega-Sena</button>
+      <button class="game-btn loto" onclick="selectGame('lotofacil')">Lotofácil</button>
+    </div>
+  </div>
+</header>
+
+<!-- FETCH STATUS BAR -->
+<div class="fetch-bar" id="fetchBar">
+  <div class="fetch-spin"></div>
+  <span id="fetchMsg">Verificando resultados dos concursos aceitos…</span>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <span class="ctrl-label">Palpites:</span>
+  <div class="qty-wrap" id="qtyWrap">
+    <button class="qty-btn active" onclick="setQty(1)">1</button>
+    <button class="qty-btn" onclick="setQty(2)">2</button>
+    <button class="qty-btn" onclick="setQty(3)">3</button>
+    <button class="qty-btn" onclick="setQty(5)">5</button>
+    <button class="qty-btn" onclick="setQty(8)">8</button>
+    <button class="qty-btn" onclick="setQty(10)">10</button>
+  </div>
+  <button class="regen-btn" id="regenBtn" onclick="regenerate()">
+    <span class="regen-icon">↻</span> Gerar Palpites
+  </button>
+  <span class="data-tag" id="dataTag">⚡ Base histórica: 200+ sorteios</span>
+</div>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab active" onclick="showTab('palpites',0)">🎯 Palpites</button>
+  <button class="tab" onclick="showTab('historico',1)">📊 Histórico</button>
+  <button class="tab" onclick="showTab('analise',2)">🔬 Análise</button>
+</nav>
+
+<!-- PALPITES -->
+<div class="tab-pane active" id="pane-palpites">
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(135deg,#ef4444,#f97316)"></div>Quente</div>
+    <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(135deg,#f97316,#f59e0b)"></div>Morno</div>
+    <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"></div>Normal</div>
+    <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(135deg,#06b6d4,#0891b2)"></div>Frio</div>
+  </div>
+  <div class="pred-grid" id="predGrid">
+    <div class="loading"><div class="spinner"></div><span>Agentes processando…</span></div>
+  </div>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="tab-pane" id="pane-historico">
+  <div class="acc-strip">
+    <div class="acc-cell"><div class="acc-val" id="hTotalV">0</div><div class="acc-lbl">Verificados</div></div>
+    <div class="acc-cell"><div class="acc-val" id="hPendV">0</div><div class="acc-lbl">Aguardando</div></div>
+    <div class="acc-cell"><div class="acc-val" id="hAvgV">—</div><div class="acc-lbl">Média acertos</div></div>
+    <div class="acc-cell"><div class="acc-val" id="hBestV">—</div><div class="acc-lbl">Melhor result.</div></div>
+    <div class="acc-cell"><div class="acc-val" id="hPctV">—</div><div class="acc-lbl">Taxa ≥50%</div></div>
+    <div class="acc-cell"><div class="acc-val" id="hImpV">—</div><div class="acc-lbl">Evolução IA</div></div>
+  </div>
+  <table class="hist-table" id="histTable">
+    <thead><tr>
+      <th>Data Aceite</th><th>Jogo</th><th>Palpite</th>
+      <th>Resultado</th><th>Acertos</th><th>Precisão</th><th>Fonte</th>
+    </tr></thead>
+    <tbody id="histBody"></tbody>
+  </table>
+  <div class="empty" id="histEmpty">
+    <div class="empty-icon">📋</div>
+    <div style="font-size:.95rem;font-weight:600">Nenhum palpite aceito ainda</div>
+    <div style="font-size:.8rem;margin-top:.5rem">Gere palpites e clique em <strong style="color:#34d399">✅ Aceitar Palpite</strong> para registrar e monitorar automaticamente</div>
+  </div>
+</div>
+
+<!-- ANÁLISE -->
+<div class="tab-pane" id="pane-analise">
+  <div class="stat-grid" id="statGrid"></div>
+  <div class="chart-card">
+    <div class="chart-title">📈 Frequência histórica por dezena</div>
+    <canvas id="freqChart" height="70"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">🌡️ Mapa de Calor — Dezenas</div>
+    <div class="heat-grid" id="heatGrid"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">⚙️ Pesos dos Agentes (aprendizado automático)</div>
+    <div id="weightBars"></div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:.75rem">Recalibrado após cada resultado confirmado.</div>
+  </div>
+</div>
+
+<!-- MODAL: resultado manual -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">📌 Informar Resultado Manualmente</div>
+    <div class="modal-sub" id="modalSub">Digite os números sorteados separados por vírgula</div>
+    <div style="margin-bottom:1rem">
+      <div class="modal-palpite-label">Seu palpite:</div>
+      <div id="modalPalpiteNums"></div>
+    </div>
+    <input class="minput" id="modalInput" placeholder="Ex: 4, 12, 28, 33, 41, 53">
+    <div class="merror" id="modalErr"></div>
+    <div class="mactions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-ok" onclick="submitResult()">Confirmar ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  DADOS HISTÓRICOS (frequência real estimada)
+// ═══════════════════════════════════════════
+const MEGA_FREQ={
+  1:21,2:19,3:18,4:22,5:24,6:16,7:20,8:21,9:18,10:25,
+  11:17,12:22,13:20,14:24,15:21,16:18,17:23,18:19,19:16,20:22,
+  21:24,22:23,23:26,24:19,25:22,26:15,27:24,28:20,29:18,30:23,
+  31:19,32:21,33:25,34:18,35:22,36:21,37:19,38:24,39:21,40:22,
+  41:25,42:22,43:26,44:19,45:23,46:20,47:17,48:24,49:21,50:20,
+  51:21,52:25,53:24,54:19,55:22,56:20,57:17,58:23,59:19,60:21
+};
+const LOTO_FREQ={
+  1:114,2:122,3:117,4:126,5:115,6:111,7:121,8:118,9:119,10:127,
+  11:120,12:125,13:117,14:123,15:124,16:112,17:121,18:128,19:115,20:129,
+  21:118,22:130,23:116,24:113,25:122
+};
+const MEGA_RECENT=[
+  [4,5,30,33,37,41],[8,14,27,29,47,59],[2,6,19,25,46,53],[11,18,26,38,43,56],
+  [3,15,22,31,44,50],[9,17,24,35,42,55],[1,12,28,36,48,60],[7,16,23,39,45,52],
+  [10,13,21,32,40,57],[6,20,27,34,46,54],[4,11,25,33,41,58],[8,17,22,38,44,53]
+];
+const LOTO_RECENT=[
+  [1,2,4,6,8,10,12,14,16,18,20,21,22,23,24],
+  [2,3,5,7,9,11,13,15,17,19,20,22,23,24,25],
+  [1,3,4,6,8,10,12,14,16,18,19,21,22,24,25],
+  [2,4,5,7,9,11,13,15,17,18,20,21,23,24,25],
+  [1,2,3,6,8,10,12,14,16,17,19,21,22,23,25],
+  [2,3,4,5,9,11,13,14,16,18,20,21,22,24,25],
+  [1,4,5,7,8,10,12,13,15,17,19,20,23,24,25],
+  [2,3,4,6,7,10,11,14,16,18,19,21,22,23,25],
+  [1,2,5,6,8,9,12,14,15,17,20,21,22,24,25],
+  [3,4,5,7,9,10,11,13,16,18,19,20,23,24,25],
+  [1,2,4,6,8,11,13,15,17,19,20,21,23,24,25],
+  [2,3,5,7,9,10,12,14,16,18,20,22,23,24,25]
+];
+
+// ═══════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════
+const S={
+  game:'megasena', qty:1,
+  preds: JSON.parse(localStorage.getItem('lb_preds')||'[]'),
+  history: JSON.parse(localStorage.getItem('lb_history')||'[]'),
+  weights: JSON.parse(localStorage.getItem('lb_weights')||JSON.stringify({frequency:.35,cycle:.25,balance:.22,pattern:.18})),
+  pendingModal: null,
+  // Cache dos últimos resultados buscados para evitar re-processar
+  lastFetched: JSON.parse(localStorage.getItem('lb_lastFetched')||'{}')
+};
+
+// ═══════════════════════════════════════════
+//  ENGINE ESTATÍSTICO
+// ═══════════════════════════════════════════
+const E={
+  cfg(g){return g==='megasena'
+    ?{min:1,max:60,pick:6,freq:MEGA_FREQ,recent:MEGA_RECENT,totalDraws:2620}
+    :{min:1,max:25,pick:15,freq:LOTO_FREQ,recent:LOTO_RECENT,totalDraws:2920}},
+  norm(obj){const v=Object.values(obj),lo=Math.min(...v),hi=Math.max(...v),r=(hi-lo)||1,out={};for(const[k,x]of Object.entries(obj))out[k]=(x-lo)/r;return out},
+  freqScores(g){const c=this.cfg(g),raw={};for(let n=c.min;n<=c.max;n++)raw[n]=c.freq[n]||0;return this.norm(raw)},
+  cycleScores(g){const c=this.cfg(g),raw={};for(let n=c.min;n<=c.max;n++){let ls=c.recent.length;for(let i=0;i<c.recent.length;i++){if(c.recent[i].includes(n)){ls=i;break;}}raw[n]=ls/Math.max(1,c.totalDraws/(c.freq[n]||1))*c.recent.length;}return this.norm(raw)},
+  patternScore(g,nums){const c=this.cfg(g);const odds=nums.filter(n=>n%2!==0).length,bal=1-Math.abs(odds-nums.length/2)/(nums.length/2),sum=nums.reduce((a,b)=>a+b,0),mid=(c.min+c.max)/2*c.pick,rng=(c.max-c.min)*c.pick,sumSc=1-Math.abs(sum-mid*.9)/rng,q=Math.floor((c.max-c.min)/4),qc=[0,0,0,0];nums.forEach(n=>{qc[Math.min(3,Math.floor((n-c.min)/q))]++});const ideal=c.pick/4,spread=1-qc.reduce((a,b)=>a+Math.abs(b-ideal),0)/c.pick;return Math.max(0,Math.min(1,(bal+sumSc+spread)/3))},
+  genNumbers(g,fS,cS){const c=this.cfg(g),w=S.weights,combo={};for(let n=c.min;n<=c.max;n++)combo[n]=(fS[n]||0)*w.frequency+(cS[n]||0)*w.cycle+.05;const sorted=Object.entries(combo).sort((a,b)=>b[1]-a[1]).map(([n,s])=>({n:+n,s})),pool=sorted.slice(0,Math.ceil(sorted.length*.65)),sel=new Set();let att=0;while(sel.size<c.pick&&att++<1000){const tot=pool.reduce((a,x)=>sel.has(x.n)?a:a+x.s,0);let r=Math.random()*tot;for(const item of pool){if(sel.has(item.n))continue;r-=item.s;if(r<=0){sel.add(item.n);break;}}}for(const item of sorted){if(sel.size>=c.pick)break;sel.add(item.n);}return[...sel].sort((a,b)=>a-b)},
+  calcProb(g,nums){const fS=this.freqScores(g),cS=this.cycleScores(g),w=S.weights,af=nums.reduce((a,n)=>a+(fS[n]||0),0)/nums.length,ac=nums.reduce((a,n)=>a+(cS[n]||0),0)/nums.length,pat=this.patternScore(g,nums),combined=af*w.frequency+ac*w.cycle+pat*(w.balance+w.pattern),sig=1/(1+Math.exp(-5*(combined-.5)));return{total:Math.round(18+sig*78),freq:Math.round(af*100),cycle:Math.round(ac*100),pattern:Math.round(pat*100)}},
+  heat(g,n){const v=this.freqScores(g)[n]||0;return v>.75?'hot':v>.5?'warm':v>.25?'cool':'cold'},
+  generate(g,qty){const fS=this.freqScores(g),cS=this.cycleScores(g),out=[];for(let i=0;i<qty;i++){const nums=this.genNumbers(g,fS,cS),prob=this.calcProb(g,nums);out.push({id:Date.now()+i,game:g,nums,prob,createdAt:new Date().toISOString(),accepted:false,verified:false});}return out.sort((a,b)=>b.prob.total-a.prob.total)},
+  learn(){const v=S.history.filter(h=>h.result&&h.result.length>0);if(v.length<3)return;let c={frequency:0,cycle:0,pattern:0};v.forEach(h=>{const mp=h.matchPct/100;c.frequency+=(h.prob?.freq||50)/100*mp;c.cycle+=(h.prob?.cycle||50)/100*mp;c.pattern+=(h.prob?.pattern||50)/100*mp;});const tot=c.frequency+c.cycle+c.pattern+.001,m=.72;S.weights={frequency:m*S.weights.frequency+(1-m)*(c.frequency/tot*.82),cycle:m*S.weights.cycle+(1-m)*(c.cycle/tot*.82),balance:m*S.weights.balance+(1-m)*(c.pattern/tot*.5)*.55,pattern:m*S.weights.pattern+(1-m)*(c.pattern/tot*.5)*.45};localStorage.setItem('lb_weights',JSON.stringify(S.weights));const top=Object.entries(S.weights).sort((a,b)=>b[1]-a[1])[0];const names={frequency:'Frequência',cycle:'Ciclos',balance:'Balanço',pattern:'Padrões'};document.getElementById('aiLabel').textContent=`3 agentes • ${names[top[0]]} dominante`}
+};
+
+// ═══════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════
+function toast(msg,type='info',dur=5000){
+  const w=document.getElementById('toastWrap');
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.textContent=msg;
+  w.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(8px)';el.style.transition='all .3s';setTimeout(()=>el.remove(),300)},dur);
+}
+
+// ═══════════════════════════════════════════
+//  FETCH RESULTADOS AUTOMATICAMENTE
+// ═══════════════════════════════════════════
+
+// Busca resultado de um jogo na API da Caixa (com fallback allorigins)
+async function fetchResult(game){
+  const apiGame=game==='megasena'?'megasena':'lotofacil';
+  const directUrl=`https://servicebus2.caixa.gov.br/portaldeloterias/api/${apiGame}/`;
+  const proxyUrl=`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+
+  // Tenta direto primeiro
+  for(const [url,isProxy] of [[directUrl,false],[proxyUrl,true]]){
+    try{
+      const res=await fetch(url,{signal:AbortSignal.timeout(7000)});
+      if(!res.ok) continue;
+      let data=await res.json();
+      if(isProxy){
+        if(!data.contents) continue;
+        data=JSON.parse(data.contents);
+      }
+      // Normaliza campos (a API da Caixa usa nomes diferentes por jogo)
+      const numero=data.numero||data.numeroConcurso;
+      const dezenas=(data.listaDezenas||data.dezenas||[]).map(n=>+n);
+      const dataAp=data.dataApuracao||data.data||'';
+      if(!numero||!dezenas.length) continue;
+      return {numero:+numero, dezenas:dezenas.sort((a,b)=>a-b), dataApuracao:dataAp};
+    }catch{continue;}
+  }
+  return null;
+}
+
+// Processa e verifica automaticamente palpites aceitos pendentes
+async function autoCheckResults(){
+  const bar=document.getElementById('fetchBar');
+  const msg=document.getElementById('fetchMsg');
+  const accepted=S.preds.filter(p=>p.accepted&&!p.verified);
+  if(!accepted.length){
+    bar.style.display='none';
+    return;
+  }
+
+  bar.className='fetch-bar';
+  bar.style.display='flex';
+  msg.textContent=`Verificando ${accepted.length} palpite(s) aceito(s) nos concursos…`;
+
+  const games=[...new Set(accepted.map(p=>p.game))];
+  let newResults=0;
+
+  for(const game of games){
+    const result=await fetchResult(game);
+    if(!result){
+      continue;
+    }
+
+    const gamePreds=accepted.filter(p=>p.game===game);
+    for(const pred of gamePreds){
+      // Só aplica resultado se for de concurso posterior ao aceite
+      const contestOk=!pred.contestAtAcceptance||result.numero>pred.contestAtAcceptance;
+      // Ou se a data do sorteio for após a data de aceite
+      const acceptedDate=new Date(pred.acceptedAt||pred.createdAt);
+      const resultDate=parseDataBR(result.dataApuracao);
+      const dateOk=resultDate&&resultDate>acceptedDate;
+
+      if(contestOk||dateOk){
+        applyResult(pred,result.dezenas,'auto',result.numero,result.dataApuracao);
+        newResults++;
+      }
+    }
+  }
+
+  if(newResults>0){
+    toast(`🎉 ${newResults} resultado(s) encontrado(s) e verificado(s) automaticamente!`,'success');
+    renderPreds();
+    if(document.getElementById('pane-historico').classList.contains('active')) renderHistory();
+    E.learn();
+  }
+
+  // Atualiza a barra de status
+  const stillPending=S.preds.filter(p=>p.accepted&&!p.verified).length;
+  if(stillPending>0){
+    bar.className='fetch-bar warn';
+    const gl=games.length>1?'jogos':'jogo';
+    msg.textContent=`⏳ ${stillPending} palpite(s) aguardando próximo sorteio — verificação automática ativa`;
+    // Busca de novo em 10 minutos
+    setTimeout(autoCheckResults,10*60*1000);
+  } else {
+    bar.style.display='none';
+  }
+}
+
+function parseDataBR(str){
+  if(!str) return null;
+  const parts=str.split('/');
+  if(parts.length!==3) return null;
+  return new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`);
+}
+
+function applyResult(pred,dezenas,source,concurso,dataAp){
+  const cfg=E.cfg(pred.game);
+  pred.verified=true;
+  pred.result=dezenas;
+  pred.verifiedAt=new Date().toISOString();
+  pred.verifySource=source;
+  pred.concurso=concurso;
+
+  const matches=pred.nums.filter(n=>dezenas.includes(n)).length;
+  const matchPct=Math.round(matches/cfg.pick*100);
+
+  S.history.unshift({
+    id:pred.id, game:pred.game, nums:pred.nums, result:dezenas,
+    matches, total:cfg.pick, matchPct,
+    prob:{freq:pred.prob.freq,cycle:pred.prob.cycle,pattern:pred.prob.pattern},
+    predictedScore:pred.prob.total, source,
+    concurso, dataApuracao:dataAp||'',
+    acceptedAt:pred.acceptedAt||pred.createdAt,
+    verifiedAt:pred.verifiedAt
+  });
+  localStorage.setItem('lb_history',JSON.stringify(S.history));
+  localStorage.setItem('lb_preds',JSON.stringify(S.preds));
+}
+
+// ═══════════════════════════════════════════
+//  ACEITAR PALPITE
+// ═══════════════════════════════════════════
+async function acceptPred(id){
+  const pred=S.preds.find(p=>p.id===id);
+  if(!pred||pred.accepted) return;
+
+  pred.accepted=true;
+  pred.acceptedAt=new Date().toISOString();
+
+  // Busca o número do concurso atual para saber qual é o "próximo"
+  const result=await fetchResult(pred.game).catch(()=>null);
+  pred.contestAtAcceptance=result?.numero||null;
+
+  localStorage.setItem('lb_preds',JSON.stringify(S.preds));
+  toast(`✅ Palpite aceito! Aguardando próximo sorteio para verificar automaticamente.`,'success');
+
+  // Atualiza o card imediatamente
+  const card=document.getElementById('card-'+id);
+  if(card){
+    const toShow=S.preds.filter(p=>p.game===S.game);
+    const idx=toShow.findIndex(p=>p.id===id);
+    card.replaceWith(buildCard(pred,idx));
+  }
+
+  // Atualiza histórico
+  if(document.getElementById('pane-historico').classList.contains('active')) renderHistory();
+
+  // Inicia monitoramento
+  autoCheckResults();
+}
+
+// ═══════════════════════════════════════════
+//  UI — NAVEGAÇÃO
+// ═══════════════════════════════════════════
+function selectGame(g){
+  S.game=g;
+  document.querySelectorAll('.game-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.game-btn.'+(g==='megasena'?'mega':'loto')).classList.add('active');
+  regenerate();
+}
+
+function setQty(n){
+  S.qty=n;
+  document.querySelectorAll('.qty-btn').forEach(b=>b.classList.toggle('active',+b.textContent===n));
+}
+
+function showTab(name,idx){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if(name==='historico') renderHistory();
+  if(name==='analise')   renderAnalysis();
+}
+
+function regenerate(){
+  const btn=document.getElementById('regenBtn');
+  btn.classList.add('spinning');btn.disabled=true;
+  document.getElementById('predGrid').innerHTML='<div class="loading"><div class="spinner"></div><span>Agentes processando…</span></div>';
+  setTimeout(()=>{
+    const novos=E.generate(S.game,S.qty);
+    // Mantém aceitos/verificados; substitui não-aceitos do mesmo jogo
+    const keep=S.preds.filter(p=>p.accepted||p.verified);
+    S.preds=[...novos,...keep];
+    localStorage.setItem('lb_preds',JSON.stringify(S.preds));
+    renderPreds();
+    btn.classList.remove('spinning');btn.disabled=false;
+  },750);
+}
+
+// ═══════════════════════════════════════════
+//  CONSTRUÇÃO DOS CARDS
+// ═══════════════════════════════════════════
+function renderPreds(){
+  const grid=document.getElementById('predGrid');
+  const toShow=S.preds.filter(p=>p.game===S.game);
+  if(!toShow.length){
+    grid.innerHTML='<div class="empty"><div class="empty-icon">🎯</div><div>Clique em "Gerar Palpites" para começar</div></div>';
+    return;
+  }
+  grid.innerHTML='';
+  toShow.forEach((pred,i)=>grid.appendChild(buildCard(pred,i)));
+}
+
+function buildCard(pred,idx){
+  const cfg=E.cfg(pred.game);
+  const d=document.createElement('div');
+  d.className=`pred-card ${pred.game==='megasena'?'mega':'loto'}`;
+  d.id='card-'+pred.id;
+  const p=pred.prob;
+  const chipCls=p.total>=72?'high':p.total>=52?'med':'low';
+  const chipIcon=p.total>=72?'🏆':p.total>=52?'⭐':'🎲';
+  const gl=pred.game==='megasena'?'Mega-Sena':'Lotofácil';
+  const barColor=p.total>=72?'linear-gradient(90deg,#059669,#34d399)':p.total>=52?'linear-gradient(90deg,#d97706,#f59e0b)':'linear-gradient(90deg,#6366f1,#8b5cf6)';
+  const balls=pred.nums.map(n=>`<div class="ball ${E.heat(pred.game,n)}" title="${n}">${n}</div>`).join('');
+
+  let footer='';
+
+  if(pred.verified && pred.result){
+    // Estado: verificado
+    const matches=pred.nums.filter(n=>pred.result.includes(n)).length;
+    const pct=Math.round(matches/cfg.pick*100);
+    const cls=pct>=70?'excellent':pct>=50?'good':pct>=30?'fair':'poor';
+    const em=pct>=70?'🏆':pct>=50?'🎯':pct>=30?'👍':'📉';
+    const src=pred.verifySource==='auto'?'🤖 Automático':'👤 Manual';
+    const conc=pred.concurso?` — Concurso ${pred.concurso}`:'';
+    footer=`<div class="result-badge ${cls}">
+      <div class="rb-score" style="color:${pct>=70?'#34d399':pct>=50?'#fbbf24':pct>=30?'#818cf8':'#f87171'}">${em} ${matches}/${cfg.pick} acertos (${pct}%)</div>
+      <div class="rb-detail">Resultado: ${pred.result.join(' · ')}${conc}</div>
+      <div class="rb-source">${src}</div>
+    </div>`;
+
+  } else if(pred.accepted){
+    // Estado: aceito, aguardando sorteio
+    const conc=pred.contestAtAcceptance?`Aguardando concurso >${pred.contestAtAcceptance}`:'Aguardando próximo sorteio';
+    footer=`<div class="waiting-badge">
+      <div class="waiting-spinner"></div>
+      <div class="waiting-text">⏳ ${conc} — resultado será verificado automaticamente</div>
+      <button class="waiting-manual" onclick="openModal(${pred.id})">Informar manual</button>
+    </div>`;
+
+  } else {
+    // Estado: não aceito
+    footer=`<div class="card-actions">
+      <button class="accept-btn" onclick="acceptPred(${pred.id})">✅ Aceitar Palpite</button>
+      <button class="act-btn" onclick="copyPred(${pred.id})">📋 Copiar</button>
+    </div>`;
+  }
+
+  d.innerHTML=`
+    <div class="card-head">
+      <span class="card-label">${gl} — Palpite #${idx+1}</span>
+      <div class="prob-chip ${chipCls}">${chipIcon} ${p.total}%</div>
+    </div>
+    <div class="balls-row">${balls}</div>
+    <div class="bar-wrap">
+      <div class="bar-meta"><span>Score de confiança IA</span><span>${p.total}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${p.total}%;background:${barColor}"></div></div>
+    </div>
+    <div class="agents">
+      <div class="agents-title">Contribuição dos Agentes</div>
+      <div class="agents-row">
+        <div class="agent-box"><div class="agent-name">🔥 Frequência</div><div class="agent-val" style="color:#f87171">${p.freq}%</div></div>
+        <div class="agent-box"><div class="agent-name">🔄 Ciclos</div><div class="agent-val" style="color:#22d3ee">${p.cycle}%</div></div>
+        <div class="agent-box"><div class="agent-name">🧮 Padrões</div><div class="agent-val" style="color:#fbbf24">${p.pattern}%</div></div>
+      </div>
+    </div>
+    ${footer}
+  `;
+  return d;
+}
+
+function copyPred(id){
+  const pred=S.preds.find(p=>p.id===id);
+  if(!pred) return;
+  navigator.clipboard.writeText(pred.nums.join(' - ')).catch(()=>{});
+  toast('📋 Números copiados!','info',2000);
+}
+
+// ═══════════════════════════════════════════
+//  MODAL (resultado manual)
+// ═══════════════════════════════════════════
+function openModal(id){
+  const pred=S.preds.find(p=>p.id===id);
+  if(!pred) return;
+  S.pendingModal=id;
+  const cfg=E.cfg(pred.game);
+  document.getElementById('modalSub').textContent=`Informe os ${cfg.pick} números sorteados (${cfg.min}–${cfg.max})`;
+  document.getElementById('modalPalpiteNums').innerHTML=pred.nums.map(n=>
+    `<span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;margin:2px">${n}</span>`
+  ).join('');
+  document.getElementById('modalInput').value='';
+  document.getElementById('modalErr').style.display='none';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');S.pendingModal=null;}
+
+function submitResult(){
+  const pred=S.preds.find(p=>p.id===S.pendingModal);
+  if(!pred) return;
+  const cfg=E.cfg(pred.game);
+  const nums=[...new Set(document.getElementById('modalInput').value.split(/[\s,;]+/).map(n=>+n.trim()).filter(n=>!isNaN(n)&&n>0))];
+  const err=document.getElementById('modalErr');
+  if(nums.length!==cfg.pick){err.textContent=`Informe exatamente ${cfg.pick} números distintos.`;err.style.display='block';return;}
+  if(nums.some(n=>n<cfg.min||n>cfg.max)){err.textContent=`Números devem estar entre ${cfg.min} e ${cfg.max}.`;err.style.display='block';return;}
+  applyResult(pred,nums.sort((a,b)=>a-b),'manual',null,null);
+  E.learn();
+  closeModal();
+  const card=document.getElementById('card-'+pred.id);
+  if(card){const toShow=S.preds.filter(p=>p.game===S.game);card.replaceWith(buildCard(pred,toShow.findIndex(p=>p.id===pred.id)));}
+  setTimeout(()=>showTab('historico',1),400);
+}
+
+// ═══════════════════════════════════════════
+//  HISTÓRICO
+// ═══════════════════════════════════════════
+function renderHistory(){
+  const v=S.history;
+  const pending=S.preds.filter(p=>p.accepted&&!p.verified).length;
+  document.getElementById('hTotalV').textContent=v.length;
+  document.getElementById('hPendV').textContent=pending;
+
+  if(!v.length){
+    document.getElementById('histEmpty').style.display='block';
+    document.getElementById('histBody').innerHTML='';
+    ['hAvgV','hBestV','hPctV','hImpV'].forEach(id=>document.getElementById(id).textContent='—');
+    return;
+  }
+  document.getElementById('histEmpty').style.display='none';
+
+  const avg=v.reduce((a,h)=>a+h.matchPct,0)/v.length;
+  const best=Math.max(...v.map(h=>h.matchPct));
+  const pct=Math.round(v.filter(h=>h.matchPct>=50).length/v.length*100);
+  let evo='—';
+  if(v.length>=4){const half=Math.ceil(v.length/2);const rec=v.slice(0,half).reduce((a,h)=>a+h.matchPct,0)/half,old=v.slice(half).reduce((a,h)=>a+h.matchPct,0)/(v.length-half);const diff=Math.round(rec-old);evo=(diff>=0?'↑+':'↓')+diff+'%';}
+  document.getElementById('hAvgV').textContent=Math.round(avg)+'%';
+  document.getElementById('hBestV').textContent=best+'%';
+  document.getElementById('hPctV').textContent=pct+'%';
+  document.getElementById('hImpV').textContent=evo;
+
+  document.getElementById('histBody').innerHTML=v.map(h=>{
+    const date=new Date(h.acceptedAt||h.verifiedAt).toLocaleDateString('pt-BR');
+    const gl=h.game==='megasena'?'Mega-Sena':'Lotofácil';
+    const predBalls=h.nums.map(n=>`<div class="mini-ball ${h.result?.includes(n)?'hit':'miss'}">${n}</div>`).join('');
+    const resBalls=(h.result||[]).map(n=>`<div class="mini-ball plain">${n}</div>`).join('');
+    const cls=h.matchPct>=70?'excellent':h.matchPct>=50?'good':h.matchPct>=30?'fair':'poor';
+    const em=h.matchPct>=70?'🏆':h.matchPct>=50?'🎯':h.matchPct>=30?'👍':'📉';
+    const srcTag=h.source==='auto'?'<span class="stag auto">🤖 auto</span>':'<span class="stag manual">👤 manual</span>';
+    const conc=h.concurso?`<br><span style="font-size:.65rem;color:var(--muted)">Conc. ${h.concurso}</span>`:'';
+    return`<tr>
+      <td>${date}${conc}</td>
+      <td><span style="font-size:.7rem;padding:.2rem .5rem;border-radius:6px;background:var(--card2);color:var(--muted)">${gl}</span></td>
+      <td><div style="display:flex;flex-wrap:wrap">${predBalls}</div></td>
+      <td><div style="display:flex;flex-wrap:wrap">${resBalls||'<span style="color:var(--muted);font-size:.75rem">—</span>'}</div></td>
+      <td style="font-weight:700">${h.result?`${h.matches}/${h.total}`:'—'}</td>
+      <td>${h.result?`<span class="mtag ${cls}">${em} ${h.matchPct}%</span>`:'<span class="mtag waiting">⏳ pendente</span>'}</td>
+      <td>${srcTag}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  ANÁLISE ESTATÍSTICA
+// ═══════════════════════════════════════════
+let freqChart=null;
+function renderAnalysis(){
+  const cfg=E.cfg(S.game),fS=E.freqScores(S.game);
+  const sorted=Object.entries(cfg.freq).sort((a,b)=>b[1]-a[1]);
+  const hot=sorted.slice(0,6).map(x=>x[0]).join(', ');
+  const cold=sorted.slice(-6).map(x=>x[0]).join(', ');
+  const w=S.weights;
+  document.getElementById('statGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-title">🔥 Mais Frequentes</div><div class="stat-big" style="color:#f87171;font-size:1.05rem">${hot}</div><div class="stat-sub">Top 6 mais sorteadas</div></div>
+    <div class="stat-card"><div class="stat-title">❄️ Menos Frequentes</div><div class="stat-big" style="color:#22d3ee;font-size:1.05rem">${cold}</div><div class="stat-sub">Bottom 6 menos sorteadas</div></div>
+    <div class="stat-card"><div class="stat-title">📅 Concursos Analisados</div><div class="stat-big">${cfg.totalDraws.toLocaleString('pt-BR')}</div><div class="stat-sub">${S.game==='megasena'?'Mega-Sena':'Lotofácil'}</div></div>
+    <div class="stat-card"><div class="stat-title">🎲 Dezenas por Concurso</div><div class="stat-big">${cfg.pick}<span style="font-size:1rem;color:var(--muted)"> de ${cfg.max}</span></div><div class="stat-sub">Selecionadas por sorteio</div></div>`;
+
+  const labels=[],data=[],colors=[];
+  for(let n=cfg.min;n<=cfg.max;n++){labels.push(n);data.push(cfg.freq[n]||0);const v=fS[n]||0;colors.push(v>.75?'rgba(239,68,68,.8)':v>.5?'rgba(249,115,22,.8)':v>.25?'rgba(99,102,241,.8)':'rgba(6,182,212,.8)');}
+  if(freqChart){freqChart.destroy();freqChart=null;}
+  freqChart=new Chart(document.getElementById('freqChart').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Frequência',data,backgroundColor:colors,borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}x sorteada`}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b'}}}}});
+
+  const hg=document.getElementById('heatGrid'),bg={hot:'linear-gradient(135deg,#ef4444,#f97316)',warm:'linear-gradient(135deg,#f97316,#f59e0b)',cool:'linear-gradient(135deg,#6366f1,#8b5cf6)',cold:'linear-gradient(135deg,#06b6d4,#0891b2)'};
+  hg.innerHTML='';
+  for(let n=cfg.min;n<=cfg.max;n++){const h=E.heat(S.game,n),el=document.createElement('div');el.className='heat-cell';el.style.background=bg[h];el.style.color='#fff';el.title=`Dezena ${n}: ${cfg.freq[n]}x`;el.innerHTML=`${n}<div class="heat-freq">${cfg.freq[n]}x</div>`;hg.appendChild(el);}
+
+  document.getElementById('weightBars').innerHTML=[['🔥 Agente Frequência','frequency','#f87171'],['🔄 Agente Ciclos','cycle','#22d3ee'],['⚖️ Agente Balanço','balance','#a78bfa'],['🧮 Agente Padrões','pattern','#fbbf24']].map(([nm,k,c])=>`<div class="wbar-item"><div class="wbar-head"><span>${nm}</span><span style="color:${c}">${Math.round(w[k]*100)}%</span></div><div class="wbar-track"><div class="wbar-fill" style="width:${Math.round(w[k]*100)}%;background:${c}"></div></div></div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+async function appStart(){
+  document.getElementById('dataTag').textContent='⚡ Base histórica: 200+ sorteios integrados';
+  E.learn();
+  const saved=S.preds.filter(p=>p.game===S.game);
+  if(saved.length) renderPreds(); else regenerate();
+  renderHistory();
+  autoCheckResults();
+  setInterval(autoCheckResults, 15*60*1000);
+}
+
+// ═══════════════════════════════════════════
+//  INIT — chamado pelo login quando senha ok
+// ═══════════════════════════════════════════
+window.addEventListener('load', function(){
+  // Só inicia o app se o login já liberou
+  if(window.__loginOk) appStart();
+});
+</script>
+</body>
+</html>
